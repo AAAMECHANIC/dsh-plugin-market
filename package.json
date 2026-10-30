@@ -1,0 +1,13 @@
+{
+  "name": "dsh-plugin-market-index",
+  "private": true,
+  "type": "module",
+  "description": "DSH plugin market index (format 1) generated from the awesome-dsh-plugin catalog, filtered for the current DeepSeek Harness version.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-plugin-market-index": "0.2.1-rc.5",
+    "semver": "7.8.5"
+  }
+}

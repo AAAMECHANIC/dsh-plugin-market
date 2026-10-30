@@ -1,0 +1,9 @@
+﻿CC0 1.0 Universal
+
+索引内容（index.json 中的插件元数据）来自 awesome-dsh-plugin（CC0-1.0），
+本仓库对其做过滤与重排后发布，同样以 CC0-1.0 释出。
+构建脚本 build.mjs 以 MIT 释出。
+
+To the extent possible under law, the authors have waived all copyright and
+related or neighboring rights to this work.
+https://creativecommons.org/publicdomain/zero/1.0/
