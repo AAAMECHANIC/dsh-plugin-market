@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
     devDependencies:
       '@deepseek-ai/dsh-plugin-market-index':
         specifier: 0.2.1-rc.5
@@ -50,6 +54,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  yaml@2.9.1:
+    resolution: {integrity: sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
 snapshots:
 
   '@deepseek-ai/cordis@4.0.5':
@@ -72,3 +81,5 @@ snapshots:
   '@standard-schema/spec@1.1.0': {}
 
   semver@7.8.5: {}
+
+  yaml@2.9.1: {}

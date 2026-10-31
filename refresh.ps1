@@ -13,6 +13,15 @@ function Write-Log($msg) {
 
 try {
     Set-Location $repo
+    # Refresh the catalog clone that carries the full (untruncated) descriptions.
+    $data = Join-Path (Split-Path $repo -Parent) 'awesome-dsh-plugin'
+    if (Test-Path (Join-Path $data '.git')) {
+        git -C $data pull --ff-only 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Log 'WARN: catalog clone pull failed; full descriptions may be stale' }
+    }
+    else {
+        Write-Log 'WARN: catalog clone missing; index falls back to truncated descriptions'
+    }
     $before = (Get-FileHash 'index.json' -Algorithm SHA256).Hash
     & $node build.mjs | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "build.mjs exited $LASTEXITCODE" }

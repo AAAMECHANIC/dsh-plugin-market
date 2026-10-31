@@ -7,8 +7,8 @@ DSH 自带的市场页（插件 → 发现）本身不含任何插件目录，�
 
 - 索引地址：**https://aaamechanic.github.io/dsh-plugin-market/index.json**
 - 数据来源：社区目录 [awesome-dsh-plugin.com](https://awesome-dsh-plugin.com)（CC0-1.0）
-- 当前规模：约 3300 个插件、2.7 MB，中英双语，按「最近更新」排序
-- 每个条目带上游的中英双语 `description`：市场列表会在插件名下方显示一行中文简介（超长自动省略）
+- 当前规模：约 3300 个插件、3.1 MB，中英双语，按「最近更新」排序
+- 每个条目带上游的**完整**中英双语 `description`（官方发布的索引只保留前 160 字；本项目从上游 `data/plugins/*.yml` 取全文，最长约 1400 字），市场列表在插件名下方显示一行简介，悬停插件可看全文
 - 过滤口径：只保留「未声明 `engines.dsh`」或「版本范围满足当前 DSH（`0.2.1-rc.5`）」的版本，每个插件最多 3 个最新可用版本
 - 生成与校验：`build.mjs` 用官方 `@deepseek-ai/dsh-plugin-market-index` 的 `parseMarketIndex` 校验通过后才写盘；每天自动刷新
 
@@ -28,14 +28,20 @@ DSH 自带的市场页（插件 → 发现）本身不含任何插件目录，�
 
 ## 更新
 
-- **自动**：Windows 计划任务 `DSH Plugin Market Index Refresh` 每天 04:10 运行 `refresh.ps1`（重建索引 → 有变化则提交到 GitHub → 顺带自愈 profile 里的索引源）。日志见 `refresh.log`。
+- **自动**：Windows 计划任务 `DSH Plugin Market Index Refresh` 每天 04:10 运行 `refresh.ps1`（先 `git pull` 上游目录克隆 → 重建索引 → 有变化则提交到 GitHub → 顺带自愈 profile 里的索引源）。日志见 `refresh.log`。
 - **手动**：
 
 ```bash
-npm install
-npm run build          # 换 DSH 版本：DSH_VERSION=0.2.2-rc.1 npm run build
+# 首次（或数据目录丢失时）：稀疏克隆上游目录，只为拿完整简介
+git clone --depth 1 --filter=blob:none --sparse https://github.com/awesome-dsh-plugin/awesome-dsh-plugin ../
+git -C ../awesome-dsh-plugin sparse-checkout set data/plugins
+
+pnpm install
+pnpm run build          # 换 DSH 版本：DSH_VERSION=0.2.2-rc.1 pnpm run build
 git add index.json && git commit -m "chore: refresh index" && git push
 ```
+
+> 上游目录克隆放在仓库外的 `../awesome-dsh-plugin`（默认路径，可用 `UPSTREAM_DATA_DIR` 覆盖）；找不到时 `build.mjs` 会退回官方索引的 160 字截断版并打印警告。
 
 > GitHub Actions 工作流已备在 `.github/workflows/update.yml`，但当前 gh token 缺 `workflow` scope，暂未推送；`gh auth refresh -s workflow` 后可改用云端每日刷新（届时可停掉本机计划任务）。
 

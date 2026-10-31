@@ -1,6 +1,9 @@
 // Build a DSH plugin market index (format 1) from the awesome-dsh-plugin catalog.
 // Keeps only plugins that have at least one version installable on DSH_VERSION.
-import { writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { parse as parseYaml } from 'yaml'
 import semver from 'semver'
 import { parseMarketIndex } from '@deepseek-ai/dsh-plugin-market-index'
 
@@ -8,11 +11,36 @@ const DSH_VERSION = process.env.DSH_VERSION || '0.2.1-rc.5'
 const UPSTREAM = process.env.UPSTREAM_INDEX || 'https://awesome-dsh-plugin.com/index.json'
 const INDEX_URL = 'https://aaamechanic.github.io/dsh-plugin-market/index.json'
 const MAX_VERSIONS_PER_PLUGIN = 3
+const HERE = dirname(fileURLToPath(import.meta.url))
+// The published index truncates every description to 160 characters; the full
+// text lives in the catalog repository's data/plugins/*.yml. Read a local clone
+// of that repository (sparse checkout of data/plugins) when it is present, so
+// the market can show a complete introduction instead of an ellipsised one.
+const UPSTREAM_DATA_DIR =
+  process.env.UPSTREAM_DATA_DIR || join(HERE, '..', 'awesome-dsh-plugin', 'data', 'plugins')
 
 const response = await fetch(UPSTREAM)
 if (!response.ok) throw new Error(`upstream ${response.status} ${response.statusText}`)
 const upstream = await response.json()
 if (upstream.format !== 1 || !Array.isArray(upstream.plugins)) throw new Error('unexpected upstream format')
+
+/** Full, untruncated descriptions keyed by the catalog's `owner/repo` name. */
+const fullDescriptions = new Map()
+if (existsSync(UPSTREAM_DATA_DIR)) {
+  for (const file of readdirSync(UPSTREAM_DATA_DIR)) {
+    if (!file.endsWith('.yml')) continue
+    try {
+      const entry = parseYaml(readFileSync(join(UPSTREAM_DATA_DIR, file), 'utf8'))
+      if (entry && typeof entry.name === 'string' && entry.description !== undefined) {
+        fullDescriptions.set(entry.name, entry.description)
+      }
+    } catch {
+      // A malformed catalog file only costs that plugin its full description.
+    }
+  }
+} else {
+  console.warn(`full descriptions unavailable: ${UPSTREAM_DATA_DIR} is missing`)
+}
 
 function compatible(version) {
   const range = version.engines?.dsh
@@ -45,7 +73,10 @@ for (const plugin of upstream.plugins) {
     if (!entries.length || text(value.en) === undefined) return undefined
     return Object.fromEntries(entries)
   }
-  const description = localized(plugin.description)
+  // Prefer the catalog's full description; the published index keeps only the
+  // first 160 characters of it.
+  const full = fullDescriptions.get(plugin.title) ?? fullDescriptions.get(plugin.name)
+  const description = localized(full) ?? localized(plugin.description)
   plugins.push({
     name: plugin.name,
     ...(text(plugin.title) ? { title: plugin.title } : {}),
@@ -99,6 +130,7 @@ console.log(
       dshVersion: DSH_VERSION,
       upstreamPlugins: upstream.plugins.length,
       publishedPlugins: validated.plugins.length,
+      fullDescriptions: fullDescriptions.size,
       droppedIncompatible,
       droppedVersions,
       bytes: json.length,
