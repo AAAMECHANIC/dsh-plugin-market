@@ -7,8 +7,10 @@ DSH 自带的市场页（插件 → 发现）本身不含任何插件目录，�
 
 - 索引地址：**https://aaamechanic.github.io/dsh-plugin-market/index.json**
 - 数据来源：社区目录 [awesome-dsh-plugin.com](https://awesome-dsh-plugin.com)（CC0-1.0）
-- 当前规模：约 3300 个插件、3.1 MB，中英双语，按「最近更新」排序
-- 每个条目带上游的**完整**中英双语 `description`（官方发布的索引只保留前 160 字；本项目从上游 `data/plugins/*.yml` 取全文，最长约 1400 字），市场列表在插件名下方显示一行简介，悬停插件可看全文
+- 当前规模：约 3300 个插件、3.2 MB，中英双语，默认按「发布时间 + 评分」综合排序
+- 每个条目带上游的**完整**中英双语 `description`（官方发布的索引只保留前 160 字；本项目从上游 `data/plugins/*.yml` 取全文，最长约 1400 字），市场列表在插件名下方显示简介，悬停插件可看全文
+- **评分**：0.0–5.0 热度分，由 GitHub 星标（65%）+ npm 30 天下载量（35%）取 log 归一后加权；同时给出 `rating` / `stars` / `downloads` 三个排序键，列表标签显示半星档位（★ 0.5–★ 4.5）
+- **默认排序**：`0.5 × 评分归一 + 0.5 × 发布时间衰减`（半衰期 60 天），兼顾「新」与「热」；也可在排序菜单切到「评分」「星标」「30 天下载」「最近更新」
 - 过滤口径：只保留「未声明 `engines.dsh`」或「版本范围满足当前 DSH（`0.2.1-rc.5`）」的版本，每个插件最多 3 个最新可用版本
 - 生成与校验：`build.mjs` 用官方 `@deepseek-ai/dsh-plugin-market-index` 的 `parseMarketIndex` 校验通过后才写盘；每天自动刷新
 
@@ -41,7 +43,7 @@ pnpm run build          # 换 DSH 版本：DSH_VERSION=0.2.2-rc.1 pnpm run build
 git add index.json && git commit -m "chore: refresh index" && git push
 ```
 
-> 上游目录克隆放在仓库外的 `../awesome-dsh-plugin`（默认路径，可用 `UPSTREAM_DATA_DIR` 覆盖）；找不到时 `build.mjs` 会退回官方索引的 160 字截断版并打印警告。
+> 上游目录克隆放在仓库外的 `../awesome-dsh-plugin`（默认路径，可用 `UPSTREAM_DATA_DIR` 覆盖）；它同时提供完整简介（`data/plugins/*.yml`）与评分数据（`data/stars.json`、`data/downloads.json`）。找不到时 `build.mjs` 会退回官方索引的 160 字截断版并打印警告、评分全部为 0。
 
 > GitHub Actions 工作流已备在 `.github/workflows/update.yml`，但当前 gh token 缺 `workflow` scope，暂未推送；`gh auth refresh -s workflow` 后可改用云端每日刷新（届时可停掉本机计划任务）。
 

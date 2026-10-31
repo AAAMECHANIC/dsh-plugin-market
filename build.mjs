@@ -42,6 +42,37 @@ if (existsSync(UPSTREAM_DATA_DIR)) {
   console.warn(`full descriptions unavailable: ${UPSTREAM_DATA_DIR} is missing`)
 }
 
+/** GitHub stars and 30-day npm downloads, keyed by repository URL. */
+function loadStats(file) {
+  try {
+    return JSON.parse(readFileSync(join(UPSTREAM_DATA_DIR, '..', file), 'utf8'))
+  } catch {
+    return {}
+  }
+}
+const starsByRepo = loadStats('stars.json')
+const downloadsByRepo = loadStats('downloads.json')
+
+/** Read one popularity statistic for an entry, tolerating monorepo tree paths. */
+function readStat(map, repository) {
+  if (!repository || typeof repository.url !== 'string') return 0
+  const valueOf = (hit) => {
+    if (hit === undefined) return 0
+    if (typeof hit === 'number') return Number.isFinite(hit) ? hit : 0
+    const value = hit.stars ?? hit.downloads ?? 0
+    return Number.isFinite(value) ? value : 0
+  }
+  const exact = map[repository.url]
+  if (exact !== undefined) return valueOf(exact)
+  if (typeof repository.directory === 'string' && repository.directory !== '') {
+    const prefix = `${repository.url}/tree/`
+    for (const [key, hit] of Object.entries(map)) {
+      if (key.startsWith(prefix) && key.endsWith(`/${repository.directory}`)) return valueOf(hit)
+    }
+  }
+  return 0
+}
+
 function compatible(version) {
   const range = version.engines?.dsh
   if (!range) return true
@@ -53,6 +84,7 @@ function compatible(version) {
 }
 
 const plugins = []
+const popularity = new Map()
 let droppedIncompatible = 0
 let droppedVersions = 0
 for (const plugin of upstream.plugins) {
@@ -77,6 +109,11 @@ for (const plugin of upstream.plugins) {
   // first 160 characters of it.
   const full = fullDescriptions.get(plugin.title) ?? fullDescriptions.get(plugin.name)
   const description = localized(full) ?? localized(plugin.description)
+  const repository = text(plugin.repository?.url) ? plugin.repository : undefined
+  popularity.set(plugin.name, {
+    stars: readStat(starsByRepo, repository),
+    downloads: readStat(downloadsByRepo, repository),
+  })
   plugins.push({
     name: plugin.name,
     ...(text(plugin.title) ? { title: plugin.title } : {}),
@@ -84,23 +121,62 @@ for (const plugin of upstream.plugins) {
     ...(text(plugin.icon) ? { icon: plugin.icon } : {}),
     ...(text(plugin.author) ? { author: plugin.author } : {}),
     ...(text(plugin.homepage) ? { homepage: plugin.homepage } : {}),
-    ...(text(plugin.repository?.url) ? { repository: plugin.repository } : {}),
+    ...(repository ? { repository } : {}),
     metadata: {
       ...(plugin.metadata?.category ? { category: plugin.metadata.category } : {}),
       keywords: plugin.metadata?.keywords ?? [],
-      labels: plugin.metadata?.labels ?? [],
+      // Only rating labels are declared in this index; upstream labels are not.
+      labels: [],
       sortKeys: { updated: Math.max(...versions.map((v) => v.publishTimestamp)) },
     },
     versions,
   })
 }
 
-plugins.sort((a, b) => b.metadata.sortKeys.updated - a.metadata.sortKeys.updated)
+// Rating is a 0.0–5.0 heat score from public signals: GitHub stars (65%) and
+// 30-day npm downloads (35%), log-normalized against the catalog maximum. The
+// default order mixes it with publish recency — 50% rating, 50% recency with a
+// 60-day half-life — so a popular but older plugin still outranks an unknown
+// brand-new one, and neither factor alone decides.
+const logNorm = (value, max) => Math.log10(1 + value) / Math.log10(1 + max)
+const maxStars = Math.max(1, ...[...popularity.values()].map((entry) => entry.stars))
+const maxDownloads = Math.max(1, ...[...popularity.values()].map((entry) => entry.downloads))
+const nowSeconds = Math.floor(Date.now() / 1000)
+const composite = new Map()
+const usedLabels = new Map()
+for (const plugin of plugins) {
+  const { stars, downloads } = popularity.get(plugin.name)
+  const raw = 5 * (0.65 * logNorm(stars, maxStars) + 0.35 * logNorm(downloads, maxDownloads))
+  const rating = Math.round(raw * 10) / 10
+  const ageDays = Math.max(0, (nowSeconds - plugin.metadata.sortKeys.updated) / 86400)
+  const recency = Math.exp(-ageDays / 60)
+  composite.set(plugin, 0.5 * recency + 0.5 * (rating / 5))
+  plugin.metadata.sortKeys.rating = rating
+  plugin.metadata.sortKeys.stars = stars
+  plugin.metadata.sortKeys.downloads = downloads
+  const band = Math.round(rating * 2) / 2
+  if (band >= 0.5) {
+    const id = `rating-${band.toFixed(1)}`
+    usedLabels.set(id, band)
+    plugin.metadata.labels = [id]
+  }
+}
+
+plugins.sort(
+  (left, right) =>
+    composite.get(right) - composite.get(left) ||
+    right.metadata.sortKeys.updated - left.metadata.sortKeys.updated,
+)
 
 const usedCategories = new Set(plugins.map((p) => p.metadata.category).filter(Boolean))
 const categories = {}
 for (const [id, declaration] of Object.entries(upstream.metadata?.categories ?? {})) {
   if (usedCategories.has(id)) categories[id] = declaration
+}
+
+const labels = {}
+for (const [id, band] of [...usedLabels].sort((left, right) => left[1] - right[1])) {
+  labels[id] = { title: { en: `★ ${band.toFixed(1)}`, zh: `★ ${band.toFixed(1)}` } }
 }
 
 const index = {
@@ -112,9 +188,12 @@ const index = {
   },
   metadata: {
     categories,
-    labels: {},
+    labels,
     sortKeys: {
       updated: { title: { en: 'Last updated', zh: '最近更新' }, order: 'desc' },
+      rating: { title: { en: 'Rating', zh: '评分' }, order: 'desc' },
+      stars: { title: { en: 'GitHub stars', zh: 'GitHub 星标' }, order: 'desc' },
+      downloads: { title: { en: 'Downloads (30d)', zh: '30 天下载' }, order: 'desc' },
     },
   },
   plugins,
