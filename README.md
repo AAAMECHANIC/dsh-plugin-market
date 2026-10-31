@@ -7,7 +7,8 @@ DSH 自带的市场页（插件 → 发现）本身不含任何插件目录，�
 
 - 索引地址：**https://aaamechanic.github.io/dsh-plugin-market/index.json**
 - 数据来源：社区目录 [awesome-dsh-plugin.com](https://awesome-dsh-plugin.com)（CC0-1.0）
-- 当前规模：约 3300 个插件、1.4 MB，中英双语，按「最近更新」排序
+- 当前规模：约 3300 个插件、2.7 MB，中英双语，按「最近更新」排序
+- 每个条目带上游的中英双语 `description`：市场列表会在插件名下方显示一行中文简介（超长自动省略）
 - 过滤口径：只保留「未声明 `engines.dsh`」或「版本范围满足当前 DSH（`0.2.1-rc.5`）」的版本，每个插件最多 3 个最新可用版本
 - 生成与校验：`build.mjs` 用官方 `@deepseek-ai/dsh-plugin-market-index` 的 `parseMarketIndex` 校验通过后才写盘；每天自动刷新
 
