@@ -35,10 +35,21 @@ for (const plugin of upstream.plugins) {
     continue
   }
   const text = (value) => (typeof value === 'string' && value.trim() !== '' ? value : undefined)
+  // Upstream descriptions are localized ({ en, zh }); keep the whole object so the
+  // market page can show a one-line Chinese intro under each plugin name.
+  const localized = (value) => {
+    const plain = text(value)
+    if (plain !== undefined) return plain
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+    const entries = Object.entries(value).filter(([, member]) => text(member) !== undefined)
+    if (!entries.length || text(value.en) === undefined) return undefined
+    return Object.fromEntries(entries)
+  }
+  const description = localized(plugin.description)
   plugins.push({
     name: plugin.name,
     ...(text(plugin.title) ? { title: plugin.title } : {}),
-    ...(text(plugin.description) ? { description: plugin.description } : {}),
+    ...(description === undefined ? {} : { description }),
     ...(text(plugin.icon) ? { icon: plugin.icon } : {}),
     ...(text(plugin.author) ? { author: plugin.author } : {}),
     ...(text(plugin.homepage) ? { homepage: plugin.homepage } : {}),
