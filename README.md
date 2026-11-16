@@ -11,7 +11,7 @@ DSH 自带的市场页（插件 → 发现）本身不含任何插件目录，�
 - 每个条目带上游的**完整**中英双语 `description`（官方发布的索引只保留前 160 字；本项目从上游 `data/plugins/*.yml` 取全文，最长约 1400 字），市场列表在插件名下方显示简介，悬停插件可看全文
 - **评分**：0.0–5.0 热度分，由 GitHub 星标（65%）+ npm 30 天下载量（35%）取 log 归一后加权；同时给出 `rating` / `stars` / `downloads` 三个排序键，列表标签显示半星档位（★ 0.5–★ 4.5）
 - **默认排序**：`0.5 × 评分归一 + 0.5 × 发布时间衰减`（半衰期 60 天），兼顾「新」与「热」；也可在排序菜单切到「评分」「星标」「30 天下载」「最近更新」
-- 过滤口径：只保留「未声明 `engines.dsh`」或「版本范围满足当前 DSH（`0.2.1-rc.5`）」的版本，每个插件最多 3 个最新可用版本
+- 过滤口径：只保留「未声明 `engines.dsh`」或「版本范围满足 `DSH_VERSIONS` 中任一版本（默认 `0.2.1-rc.5` 与 `0.2.2-rc.3`）」的版本，每个插件最多 3 个最新可用版本；这样只面向新版 DSH 的插件不会被旧口径整条过滤掉
 - 生成与校验：`build.mjs` 用官方 `@deepseek-ai/dsh-plugin-market-index` 的 `parseMarketIndex` 校验通过后才写盘；每天自动刷新
 
 ## 在 DSH 里添加
@@ -39,7 +39,7 @@ git clone --depth 1 --filter=blob:none --sparse https://github.com/awesome-dsh-p
 git -C ../awesome-dsh-plugin sparse-checkout set data/plugins
 
 pnpm install
-pnpm run build          # 换 DSH 版本：DSH_VERSION=0.2.2-rc.1 pnpm run build
+pnpm run build          # 换 DSH 版本：DSH_VERSIONS=0.2.1-rc.5,0.2.2-rc.3 pnpm run build
 git add index.json && git commit -m "chore: refresh index" && git push
 ```
 

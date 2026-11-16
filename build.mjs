@@ -1,5 +1,5 @@
 // Build a DSH plugin market index (format 1) from the awesome-dsh-plugin catalog.
-// Keeps only plugins that have at least one version installable on DSH_VERSION.
+// Keeps only plugins that have at least one version installable on one of DSH_VERSIONS.
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -7,7 +7,16 @@ import { parse as parseYaml } from 'yaml'
 import semver from 'semver'
 import { parseMarketIndex } from '@deepseek-ai/dsh-plugin-market-index'
 
-const DSH_VERSION = process.env.DSH_VERSION || '0.2.1-rc.5'
+// Accept several DSH releases at once: a plugin that only targets a newer DSH
+// (engines.dsh >= 0.2.2-rc.3) must not disappear from the market just because
+// the default build target is older. Separate with commas, e.g.
+//   DSH_VERSIONS=0.2.1-rc.5,0.2.2-rc.3 pnpm run build
+// DSH_VERSION stays supported for single-version builds.
+const DSH_VERSIONS = (process.env.DSH_VERSIONS || process.env.DSH_VERSION || '0.2.1-rc.5,0.2.2-rc.3')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean)
+if (DSH_VERSIONS.length === 0) throw new Error('DSH_VERSIONS is empty')
 const UPSTREAM = process.env.UPSTREAM_INDEX || 'https://awesome-dsh-plugin.com/index.json'
 const INDEX_URL = 'https://aaamechanic.github.io/dsh-plugin-market/index.json'
 const MAX_VERSIONS_PER_PLUGIN = 3
@@ -77,7 +86,7 @@ function compatible(version) {
   const range = version.engines?.dsh
   if (!range) return true
   try {
-    return semver.satisfies(DSH_VERSION, range)
+    return DSH_VERSIONS.some((dshVersion) => semver.satisfies(dshVersion, range))
   } catch {
     return false
   }
@@ -183,8 +192,8 @@ const index = {
   format: 1,
   title: { en: 'DSH Community Plugins', zh: 'DSH 社区插件市场' },
   description: {
-    en: `Community-curated DeepSeek Harness plugins, filtered to versions installable on DSH ${DSH_VERSION}. Source: awesome-dsh-plugin.com (CC0).`,
-    zh: `社区精选 DeepSeek Harness 插件，仅保留可在 DSH ${DSH_VERSION} 上安装的版本。来源：awesome-dsh-plugin.com（CC0）。`,
+    en: `Community-curated DeepSeek Harness plugins, filtered to versions installable on DSH ${DSH_VERSIONS.join(' / ')}. Source: awesome-dsh-plugin.com (CC0).`,
+    zh: `社区精选 DeepSeek Harness 插件，仅保留可在 DSH ${DSH_VERSIONS.join(' / ')} 上安装的版本。来源：awesome-dsh-plugin.com（CC0）。`,
   },
   metadata: {
     categories,
@@ -206,7 +215,7 @@ writeFileSync(new URL('./index.json', import.meta.url), json)
 console.log(
   JSON.stringify(
     {
-      dshVersion: DSH_VERSION,
+      dshVersions: DSH_VERSIONS,
       upstreamPlugins: upstream.plugins.length,
       publishedPlugins: validated.plugins.length,
       fullDescriptions: fullDescriptions.size,
